@@ -132,7 +132,7 @@
       "CONTROLLER_INSTANCES": "{{ controller.instances }}"
       "JMX_REMOTE": "{{ jmx.enabled }}"
 
-      "PORT": 8080
+      "PORT": "8080"
       "TZ": "{{ docker.timezone }}"
 
       "CONFIG_whisk_info_date": "{{ whisk.version.date }}"
@@ -183,7 +183,7 @@
       "CONFIG_whisk_db_actionsDdoc": "{{ db_whisk_actions_ddoc | default() }}"
       "CONFIG_whisk_db_activationsDdoc": "{{ db_whisk_activations_ddoc | default() }}"
       "CONFIG_whisk_db_activationsFilterDdoc": "{{ db_whisk_activations_filter_ddoc | default() }}"
-      "CONFIG_whisk_userEvents_enabled": "{{ user_events }}"
+      "CONFIG_whisk_userEvents_enabled": "{{ user_events | default(false) | lower }}"
 
       "LIMITS_ACTIONS_INVOKES_PERMINUTE": "{{ limits.invocationsPerMinute }}"
       "LIMITS_ACTIONS_INVOKES_CONCURRENT": "{{ limits.concurrentInvocations }}"
@@ -211,13 +211,13 @@
       "CONFIG_whisk_runtimes_defaultImageTag":
         "{{ runtimes_default_image_tag | default() }}"
       "CONFIG_whisk_runtimes_bypassPullForLocalImages":
-        "{{ runtimes_bypass_pull_for_local_images | default() }}"
+        "{{ runtimes_bypass_pull_for_local_images | default() | lower }}"
       "CONFIG_whisk_runtimes_localImagePrefix":
         "{{ runtimes_local_image_prefix | default() }}"
 
-      "METRICS_KAMON": "{{ metrics.kamon.enabled }}"
-      "METRICS_KAMON_TAGS": "{{ metrics.kamon.tags }}"
-      "METRICS_LOG": "{{ metrics.log.enabled }}"
+      "METRICS_KAMON": "{{ metrics.kamon.enabled | default(false) | lower }}"
+      "METRICS_KAMON_TAGS": "{{ metrics.kamon.tags | default() | lower }}"
+      "METRICS_LOG": "{{ metrics.log.enabled | default(false) | lower }}"
       "CONFIG_whisk_controller_protocol": "{{ controller.protocol }}"
       "CONFIG_whisk_controller_https_keystorePath":
         "/conf/{{ controller.ssl.keystore.name }}"
@@ -247,7 +247,7 @@
 
       "CONFIG_whisk_transactions_header": "{{ transactions.header }}"
 
-      "CONFIG_whisk_controller_activation_pollingFromDb": "{{ controller_activation_pollingFromDb | default(true) }}"
+      "CONFIG_whisk_controller_activation_pollingFromDb": "{{ controller_activation_pollingFromDb | default(true) | lower }}"
 
 - name: merge extra env variables
   set_fact:
@@ -256,7 +256,7 @@
 - name: populate volumes for controller
   set_fact:
     controller_volumes:
-       - "{{ whisk_logs_dir }}/{{ controller_name }}:/logs"
+       - "/home/thing/incubator-openwhisk/tmp/wsklogs/controller0:/logs"
        - "{{ controller.confdir }}/{{ controller_name }}:/conf"
 
 - name: check if coverage collection is enabled
@@ -294,22 +294,30 @@
     name: "{{ controller_name }}"
     image:
       "{{docker_registry~docker.image.prefix}}/controller:{{ 'cov' if (coverage_enabled) else docker.image.tag }}"
-    memory: '1g'
+    memory: "1g"
     state: started
     recreate: true
     restart_policy: "{{ docker.restart.policy }}"
     hostname: "{{ controller_name }}"
     env: "{{ env }}"
-    volumes: "{{ controller_volumes }}"
-    ports: "{{ ports_to_expose }}"
+    volumes: 
+      - /home/thing/incubator-openwhisk/tmp/wsklogs/controller0:/logs
+      - /home/thing/incubator-openwhisk/tmp/wskconf/controller:/conf
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports: 
+      - 10001:8080
+      - 15000:15000
+      - 16000:16000
+      - 8000:2551
     # userns_mode, pid_mode and privileged required when controller running in lean mode
     userns_mode: "{{ userns_mode | default('') }}"
     pid_mode: "{{ pid_mode | default('') }}"
     privileged: "{{ privileged | default('no') }}"
     command:
-      /bin/sh -c
-      "exec /init.sh {{ controller_index }}
-      >> /logs/{{ controller_name }}_logs.log 2>&1"
+      tail -f /dev/null      
+    #  /bin/sh -c
+    #  "mv /conf/controller0/jmxremote.* /home/owuser && chmod 600 /home/owuser/jmxremote.* && exec /init.sh {{ controller_index }}
+    #  >> /logs/{{ controller_name }}_logs.log 2>&1"
 
 - name: wait until the Controller in this host is up and running
   uri:
