@@ -256,7 +256,7 @@
 - name: populate volumes for controller
   set_fact:
     controller_volumes:
-       - "/home/thing/incubator-openwhisk/tmp/wsklogs/controller0:/logs"
+       - "/home/pi/Workspace/incubator-openwhisk/tmp/wsklogs/controller0:/logs"
        - "{{ controller.confdir }}/{{ controller_name }}:/conf"
 
 - name: check if coverage collection is enabled
@@ -301,8 +301,8 @@
     hostname: "{{ controller_name }}"
     env: "{{ env }}"
     volumes: 
-      - /home/thing/incubator-openwhisk/tmp/wsklogs/controller0:/logs
-      - /home/thing/incubator-openwhisk/tmp/wskconf/controller:/conf
+      - /home/pi/Workspace/incubator-openwhisk/tmp/wsklogs/controller0:/logs
+      - /home/pi/Workspace/incubator-openwhisk/tmp/wskconf/controller:/conf
       - /var/run/docker.sock:/var/run/docker.sock
     ports: 
       - 10001:8080
@@ -314,7 +314,8 @@
     pid_mode: "{{ pid_mode | default('') }}"
     privileged: "{{ privileged | default('no') }}"
     command:
-      tail -f /dev/null      
+    #  tail -f /dev/null
+      /bin/sh -c "mv /conf/controller0/jmxremote.* /home/owuser && chmod 600 /home/owuser/jmxremote.* && cp /conf/controller0/* /conf && exec /init.sh 0"
     #  /bin/sh -c
     #  "mv /conf/controller0/jmxremote.* /home/owuser && chmod 600 /home/owuser/jmxremote.* && exec /init.sh {{ controller_index }}
     #  >> /logs/{{ controller_name }}_logs.log 2>&1"
@@ -330,7 +331,7 @@
       "{{ controller.confdir }}/{{ controller_name }}/{{ controller.ssl.cert }}"
   register: result
   until: result.status == 200
-  retries: 12
+  retries: 20
   delay: 5
 
 # VIM: let b:syntastic_yaml_yamllint_args="-c '".expand('%:p:h')."../../../yamllint.yml'"
